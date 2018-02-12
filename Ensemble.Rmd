@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(h2o)
+h2o.init()
+```
+
+```{r}
+raw_mens_train <- h2o.importFile('tennis_data/mens_train_file.csv')
+```
+
+```{r}
+y <- "outcome"
+x <- setdiff(names(raw_mens_train), y)
+
+raw_mens_train.split <- h2o.splitFrame(data=raw_mens_train, ratios=0.75)
+train <- raw_mens_train.split[[1]]
+val <- raw_mens_train.split[[2]]
+family <- "multinomial"
+
+```
+
+```{r}
+nfolds <- 5
+# Train & Cross-validate a GBM
+my_gbm <- h2o.gbm(x = x,
+                  y = y,
+                  training_frame = train,
+                  distribution = "multinomial",
+                  ntrees = 10,
+                  max_depth = 3,
+                  min_rows = 2,
+                  learn_rate = 0.2,
+                  nfolds = nfolds,
+                  fold_assignment = "Modulo",
+                  keep_cross_validation_predictions = TRUE,
+                  seed = 1)
+```
+
+```{r}
+ my_rf<- h2o.randomForest(x = x,
+                          y = y,
+                          training_frame = train,
+                          ntrees = 50,
+                          nfolds = nfolds,
+                          fold_assignment = "Modulo",
+                          keep_cross_validation_predictions = TRUE,
+                          seed = 1)
+```
+
+```{r}
+my_rf
+```
+
+```{r}
+# Train a stacked ensemble using the GBM and RF above
+ensemble <- h2o.stackedEnsemble(x = x,
+                                y = y,
+                                training_frame = train,
+                                model_id = "my_ensemble_binomial",
+                                base_models = list(my_gbm, my_rf))
+```
+
+```{r}
+perf <- h2o.performance(ensemble, newdata = val)
+perf
+```
+
+
